@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: linkfn-notls
+  namespace: linkfn
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: linkfn.makerdev.nl
+      http:
+        paths:
+        - path: /
+          backend:
+            serviceName: linkfn-svc
+            servicePort: 80

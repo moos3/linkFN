@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: linkfn-tls
+  namespace: linkfn
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    ingress.kubernetes.io/enable-cors: "true"
+    dns.alpha.kubernetes.io/external: "true"
+spec:
+  tls:
+  - hosts:
+    - linkfn.makerdev.nl
+    secretName: linkfn-makerdev-nl-tls
+  rules:
+  - host: linkfn.makerdev.nl
+    http:
+      paths:
+        - path: /
+          backend:
+            serviceName: linkfn-svc
+            servicePort: 80

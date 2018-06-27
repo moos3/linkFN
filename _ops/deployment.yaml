@@ -1,0 +1,47 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: linkfn
+    version: latest
+    environment: staging
+  name: linkfn
+  namespace: linkfn
+spec:
+  replicas: 1
+  strategy:
+   type: RollingUpdate
+   rollingUpdate:
+     maxSurge: 10
+     maxUnavailable: 1
+  selector:
+    matchLabels:
+     app: linkfn
+     version: latest
+  template:
+    metadata:
+      labels:
+        app: linkfn
+        version: latest
+        environment: staging
+      annotations:
+        iam.amazonaws.com/role: "linkfn"
+        sumologic.com/format: "json"
+        sumologic.com/sourceCategory: "linkfn/container"
+        sumologic.com/sourceName: "linkfn_container"
+    spec:
+      containers:
+      - name: linkfn
+        image: moos3/linkfn:latest
+        imagePullPolicy: Always
+        ports:
+         - containerPort: 3000
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 250m
+            memory: 512Mi
+      imagePullSecrets:
+        - name: dockerhub

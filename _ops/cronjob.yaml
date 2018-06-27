@@ -1,0 +1,21 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: curlChecker
+  namespace: linkfn
+spec:
+  schedule: "*/1 * * * *"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: linkcheck
+            image: buildpack-deps:curl
+            args:
+            - /bin/sh
+            - -ec
+            - curl https://linkfn.makerdev.nl/ -d '{"url":"https://www.makerbot.com/education/3d-printing-certification/"}'
+          restartPolicy: Never
