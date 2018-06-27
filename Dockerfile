@@ -5,6 +5,7 @@ WORKDIR /app
 ENV SRC_DIR=/go/src/github.com/moos3/linkFN/
 # Add the source code:
 ADD . $SRC_DIR
+
 RUN go get -u gopkg.in/mailgun/mailgun-go.v1
 # Build it:
 RUN cd $SRC_DIR; go build -o linkFn; cp linkFn /app/
