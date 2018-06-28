@@ -21,19 +21,19 @@ import (
 // **** MAILGUN SETTINGS ****
 // TODO: Move to ENV's in the OS or Container
 // mailgun domain names
-var yourDomain string = "mg.makerdev.nl" // e.g. mg.yourcompany.com
+var yourDomain string = os.Getenv("MAILGUN_DOMAIN") //"mg.makerdev.nl" // e.g. mg.yourcompany.com
 
 // starts with "key-"
-var privateAPIKey string = "41ba7c4ab2eeae72e230e99ce31d445f-e44cc7c1-b556d011"
+var privateAPIKey string = os.Getenv("MAILGUN_PRIV_API_KEY") //"41ba7c4ab2eeae72e230e99ce31d445f-e44cc7c1-b556d011"
 
 // starts with "pubkey-"
-var publicValidationKey string = "pubkey-8e185f8d9740bd85d4e41d0bf6b7e510"
+var publicValidationKey string = os.Getenv("MAILGUN_PUBLIC_VALID_KEY") //"pubkey-8e185f8d9740bd85d4e41d0bf6b7e510"
 
 // Send messages to
-var sendTo string = "richard.genthner@makerbot.com"
+var sendTo string = os.Getenv("MAIL_RECPT") //"richard.genthner@makerbot.com"
 
 // Who the messages are from
-var replyTo string = "no-reply@makerbot.com"
+var replyTo string = os.Getenv("MAIL_REPLY_TO") //"no-reply@makerbot.com"
 
 // **** END MAILGUN SETTINGS *****
 
@@ -159,6 +159,8 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Write(output)
 }
+
+// batchCheckHandler
 
 // pingHandler -
 // Simple health check.
