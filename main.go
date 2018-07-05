@@ -2,40 +2,21 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httptrace"
 	"net/http/httputil"
 	"os"
 	"os/signal"
 	"sync/atomic"
 	"syscall"
 	"time"
-
-	"gopkg.in/mailgun/mailgun-go.v1"
 )
-
-// **** MAILGUN SETTINGS ****
-// TODO: Move to ENV's in the OS or Container
-// mailgun domain names
-var yourDomain string = os.Getenv("MAILGUN_DOMAIN") //"mg.makerdev.nl" // e.g. mg.yourcompany.com
-
-// starts with "key-"
-var privateAPIKey string = os.Getenv("MAILGUN_PRIV_API_KEY") //"41ba7c4ab2eeae72e230e99ce31d445f-e44cc7c1-b556d011"
-
-// starts with "pubkey-"
-var publicValidationKey string = os.Getenv("MAILGUN_PUBLIC_VALID_KEY") //"pubkey-8e185f8d9740bd85d4e41d0bf6b7e510"
-
-// Send messages to
-var sendTo string = os.Getenv("MAIL_RECPT") //"richard.genthner@makerbot.com"
-
-// Who the messages are from
-var replyTo string = os.Getenv("MAIL_REPLY_TO") //"no-reply@makerbot.com"
-
-// **** END MAILGUN SETTINGS *****
 
 // ***** Structs For Web Service *******
 // This is a very simple checkip and geoip information service
@@ -48,11 +29,12 @@ type Link struct {
 
 // Node - every link found stored as a node
 type Node struct {
-	Link        string
-	RedirectURL string
-	StatusCode  int
-	Headers     http.Header
-	Dump        string
+	Link         string
+	RedirectURL  string
+	StatusCode   int
+	Headers      http.Header
+	Dump         string
+	ResponseTime float64
 }
 
 // ***** END STRUCTS *********
@@ -153,7 +135,8 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if data.StatusCode == 404 {
-		triggerMessage("Hello from LinkFN!\n"+"Link Checked: "+data.Link+"\n"+string(output), data.Link)
+		fmt.Println("Got a 404, this is where I'd send a email!")
+		//	triggerMessage("Hello from LinkFN!\n"+"Link Checked: "+data.Link+"\n"+string(output), data.Link)
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -239,16 +222,49 @@ func tracing(nextRequestID func() string) func(http.Handler) http.Handler {
 func urlCheck(url string) (Node, error) {
 
 	var data Node
+	var t0, t1, t2, t3, t4, t5, t6 time.Time
 
 	timeout := time.Duration(30 * time.Second)
-	client := http.Client{
+	c := http.Client{
 		Timeout: timeout,
 	}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	//	resp, err := client.Get(url)
 	if err != nil {
 		log.Print(err)
 	}
+
+	trace := &httptrace.ClientTrace{
+		DNSStart: func(_ httptrace.DNSStartInfo) { t0 = time.Now() },
+		DNSDone:  func(_ httptrace.DNSDoneInfo) { t1 = time.Now() },
+		ConnectStart: func(_, _ string) {
+			if t1.IsZero() {
+				// connecting to IP
+				t1 = time.Now()
+			}
+		},
+		ConnectDone: func(net, addr string, err error) {
+			if err != nil {
+				log.Fatalf("unable to connect to host %v: %v", addr, err)
+			}
+			t2 = time.Now()
+		},
+		GotConn:              func(_ httptrace.GotConnInfo) { t3 = time.Now() },
+		GotFirstResponseByte: func() { t4 = time.Now() },
+		TLSHandshakeStart:    func() { t5 = time.Now() },
+		TLSHandshakeDone:     func(_ tls.ConnectionState, _ error) { t6 = time.Now() },
+	}
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	resp, err := c.Do(req)
+	resp.Body.Close()
+	t7 := time.Now() // after read body
+
 	data.Link = url
+	d := t7.Sub(t0).Seconds
+	fmt.Println(d)
+	milli := 1000
+	//data.ResponseTime = int(d / float64(milli))
+	//fmt.Printf("Took %d ms\n", data.ResponseTime)
 	data.StatusCode = resp.StatusCode
 	if resp.Request.URL.String() != url {
 		data.RedirectURL = resp.Request.URL.String()
@@ -263,6 +279,7 @@ func urlCheck(url string) (Node, error) {
 		data.Headers = resp.Header
 	}
 
+	//data.ResponseTime = int(result.ContentTransfer(time.Now()) / time.Millisecond)
 	return data, err
 
 }
@@ -275,32 +292,3 @@ func runChecker(l string) Node {
 	}
 	return n
 }
-
-// triggerMessage -
-// This used for sending the output via email and building Mailgun object
-func triggerMessage(message string, link string) {
-	// Create an instance of the Mailgun Client
-	mg := mailgun.NewMailgun(yourDomain, privateAPIKey, publicValidationKey)
-
-	sender := replyTo
-	subject := "404 Detected: " + link
-	body := message
-	recipient := sendTo
-
-	sendMessage(mg, sender, subject, body, recipient)
-}
-
-// sendMessage -
-// Mailgun message sender
-func sendMessage(mg mailgun.Mailgun, sender, subject, body, recipient string) {
-	message := mg.NewMessage(sender, subject, body, recipient)
-	resp, id, err := mg.Send(message)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("ID: %s Resp: %s\n", id, resp)
-}
-
-// ***** END FUNC's HERE ******
