@@ -34,7 +34,7 @@ type Node struct {
 	StatusCode   int
 	Headers      http.Header
 	Dump         string
-	ResponseTime float64
+	ResponseTime int
 }
 
 // ***** END STRUCTS *********
@@ -260,10 +260,9 @@ func urlCheck(url string) (Node, error) {
 	t7 := time.Now() // after read body
 
 	data.Link = url
-	d := t7.Sub(t0).Seconds
+	d := t7.Sub(t0).Round(time.Millisecond)
 	fmt.Println(d)
-	milli := 1000
-	//data.ResponseTime = int(d / float64(milli))
+	data.ResponseTime = int(d)
 	//fmt.Printf("Took %d ms\n", data.ResponseTime)
 	data.StatusCode = resp.StatusCode
 	if resp.Request.URL.String() != url {
