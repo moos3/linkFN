@@ -31,7 +31,7 @@ var (
 )
 
 func main() {
-	config := LoadConfiguration(os.Getenv("LINKFN_CONFIG"))
+	config = LoadConfiguration(os.Getenv("LINKFN_CONFIG"))
 
 	listenAddr := config.Host + ":" + config.Port
 	logger := log.New(os.Stdout, "http: ", log.LstdFlags)

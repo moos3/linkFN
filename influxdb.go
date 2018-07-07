@@ -26,11 +26,11 @@ func statHandler(tags map[string]string, fields map[string]interface{}, url stri
 }
 
 func influxDBClient() client.Client {
-	fmt.Println(config)
+	fmt.Println(config.InfluxDB.Host)
 	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     influxDBHost,
-		Username: influxDBUsername,
-		Password: influxDBPassword,
+		Addr:     config.InfluxDB.Host,
+		Username: config.InfluxDB.Username,
+		Password: config.InfluxDB.Password,
 	})
 	if err != nil {
 		log.Fatalln("Error: ", err)
@@ -41,8 +41,8 @@ func influxDBClient() client.Client {
 
 func createMetrics(c client.Client, tags map[string]string, fields map[string]interface{}, urlShort string) {
 	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
-		Database:  influxDBName,
-		Precision: influxDBPrecision,
+		Database:  config.InfluxDB.Name,
+		Precision: config.InfluxDB.Precision,
 	})
 	if err != nil {
 		log.Fatalln("Error: ", err)
