@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"os"
 	"time"
 
 	client "github.com/influxdata/influxdb/client/v2"
@@ -11,16 +11,22 @@ import (
 // ******* INFLUX DB SETTINGS *****
 
 // enable influx db
-var influxOn string = os.Getenv("INFLUX_DB_ENABLE")
-var influxDBName string = os.Getenv("INFLUX_DB_NAME")
-var influxDBUsername string = os.Getenv("INFLUX_DB_USERNAME")
-var influxDBPassword string = os.Getenv("INFLUX_DB_PASSWORD")
-var influxDBPrecision string = os.Getenv("INFLUX_DB_PRECISION")
-var influxDBHost string = os.Getenv("INFLUX_DB_HOST")
+var influxOn = config.InfluxDB.Enabled
+var influxDBName = config.InfluxDB.Name
+var influxDBUsername = config.InfluxDB.Username
+var influxDBPassword = config.InfluxDB.Password
+var influxDBPrecision = config.InfluxDB.Precision
+var influxDBHost = config.InfluxDB.Host
 
 // **** Begin InfluxDB HERE ******
 
+func statHandler(tags map[string]string, fields map[string]interface{}, url string) {
+	c := influxDBClient()
+	createMetrics(c, tags, fields, url)
+}
+
 func influxDBClient() client.Client {
+	fmt.Println(config)
 	c, err := client.NewHTTPClient(client.HTTPConfig{
 		Addr:     influxDBHost,
 		Username: influxDBUsername,
@@ -33,7 +39,7 @@ func influxDBClient() client.Client {
 	return c
 }
 
-func createMetrics(c client.Client, tags map[string]string, fields map[string]string, urlShort string) {
+func createMetrics(c client.Client, tags map[string]string, fields map[string]interface{}, urlShort string) {
 	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
 		Database:  influxDBName,
 		Precision: influxDBPrecision,

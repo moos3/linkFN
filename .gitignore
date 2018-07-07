@@ -11,3 +11,5 @@ linkFN
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+_ops/deployment.yaml
+configs/development.json

@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httptrace"
-	"net/http/httputil"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -22,21 +18,6 @@ import (
 // This is a very simple checkip and geoip information service
 type key int
 
-// Link -
-type Link struct {
-	EndPoint string `json:"url"`
-}
-
-// Node - every link found stored as a node
-type Node struct {
-	Link         string
-	RedirectURL  string
-	StatusCode   int
-	Headers      http.Header
-	Dump         string
-	ResponseTime int
-}
-
 // ***** END STRUCTS *********
 
 const (
@@ -44,17 +25,15 @@ const (
 )
 
 var (
-	listenAddr string
-	healthy    int32
-	body       []byte
+	config  Config
+	healthy int32
+	body    []byte
 )
 
 func main() {
-	// Default to port 3000 on localhost
-	// You can pass the --listen-addr flag, need to include port
-	flag.StringVar(&listenAddr, "listen-addr", ":3000", "server listen address")
-	flag.Parse()
+	config := LoadConfiguration(os.Getenv("LINKFN_CONFIG"))
 
+	listenAddr := config.Host + ":" + config.Port
 	logger := log.New(os.Stdout, "http: ", log.LstdFlags)
 
 	nextRequestID := func() string {
@@ -143,8 +122,6 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
-// batchCheckHandler
-
 // pingHandler -
 // Simple health check.
 func pingHandler(w http.ResponseWriter, r *http.Request) {
@@ -215,79 +192,4 @@ func tracing(nextRequestID func() string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-}
-
-// urlCheck -
-// This function is for URL checking and will return a single Node
-func urlCheck(url string) (Node, error) {
-
-	var data Node
-	var t0, t1, t2, t3, t4, t5, t6 time.Time
-
-	timeout := time.Duration(30 * time.Second)
-	c := http.Client{
-		Timeout: timeout,
-	}
-	req, err := http.NewRequest("GET", url, nil)
-	//	resp, err := client.Get(url)
-	if err != nil {
-		log.Print(err)
-	}
-
-	trace := &httptrace.ClientTrace{
-		DNSStart: func(_ httptrace.DNSStartInfo) { t0 = time.Now() },
-		DNSDone:  func(_ httptrace.DNSDoneInfo) { t1 = time.Now() },
-		ConnectStart: func(_, _ string) {
-			if t1.IsZero() {
-				// connecting to IP
-				t1 = time.Now()
-			}
-		},
-		ConnectDone: func(net, addr string, err error) {
-			if err != nil {
-				log.Fatalf("unable to connect to host %v: %v", addr, err)
-			}
-			t2 = time.Now()
-		},
-		GotConn:              func(_ httptrace.GotConnInfo) { t3 = time.Now() },
-		GotFirstResponseByte: func() { t4 = time.Now() },
-		TLSHandshakeStart:    func() { t5 = time.Now() },
-		TLSHandshakeDone:     func(_ tls.ConnectionState, _ error) { t6 = time.Now() },
-	}
-	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
-	resp, err := c.Do(req)
-	resp.Body.Close()
-	t7 := time.Now() // after read body
-
-	data.Link = url
-	d := t7.Sub(t0).Round(time.Millisecond)
-	fmt.Println(d)
-	data.ResponseTime = int(d)
-	//fmt.Printf("Took %d ms\n", data.ResponseTime)
-	data.StatusCode = resp.StatusCode
-	if resp.Request.URL.String() != url {
-		data.RedirectURL = resp.Request.URL.String()
-	}
-	if data.StatusCode == 404 {
-		// Save a copy of this request for debugging.
-		requestDump, err := httputil.DumpResponse(resp, true)
-		if err != nil {
-			fmt.Println(err)
-		}
-		data.Dump = string(requestDump)
-		data.Headers = resp.Header
-	}
-
-	//data.ResponseTime = int(result.ContentTransfer(time.Now()) / time.Millisecond)
-	return data, err
-
-}
-
-// runChecker - This just loops over a slice of strings
-func runChecker(l string) Node {
-	n, e := urlCheck(l)
-	if e != nil {
-		fmt.Printf("Got Error: %s when fetching: %s", e, l)
-	}
-	return n
 }
