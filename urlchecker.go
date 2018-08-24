@@ -93,7 +93,9 @@ func urlCheck(url string) (Node, error) {
 		"response_time": data.ResponseTime,
 		"response_code": data.StatusCode,
 	}
-	statHandler(tags, fields, data.Link)
+	if config.InfluxDB.Enabled == "true" {
+		statHandler(tags, fields, data.Link)
+	}
 	return data, err
 
 }
